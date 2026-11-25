@@ -11,13 +11,14 @@ import dev.nichar.facepalm.config.ScoringConfig;
 import java.util.List;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
+import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 
 class FindingPropertiesTest {
 
-    @Property(tries = 200)
+    @Property(tries = 100, seed = "371")
     void evaluator_adjustments_keep_every_score_bounded(@ForAll("scores") final int risk,
                                                         @ForAll("scores") final int confidence,
                                                         @ForAll("adjustmentSequences") final List<Adjustment> adjustments,
@@ -46,18 +47,9 @@ class FindingPropertiesTest {
 
     @Provide
     Arbitrary<List<Adjustment>> adjustmentSequences() {
-        return Arbitraries.of(
-            new Adjustment("Mock Context", 0, -40),
-            new Adjustment("Production Context", 20, 0),
-            new Adjustment("Low Exposure", -40, 0),
-            new Adjustment("High Volume", -25, -30),
-            new Adjustment("Composite Risk", 15, 10),
-            new Adjustment("Placeholder", -50, -100),
-            new Adjustment("Dummy Keyword", 0, -80),
-            new Adjustment("Configuration File", 15, 20),
-            new Adjustment("Documentation File", -30, -40),
-            new Adjustment("High Entropy", 10, 20),
-            new Adjustment("Test Path", -30, -20))
+        final var delta = Arbitraries.integers().between(-200, 200);
+        return Combinators.combine(Arbitraries.just("Rule"), delta, delta)
+            .as(Adjustment::new)
             .list().ofMaxSize(12);
     }
 

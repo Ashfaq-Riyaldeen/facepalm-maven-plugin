@@ -339,12 +339,19 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Bounded property-based tests for extraction, masking and scoring (#371). -->
+        <!-- Bounded property-based tests for extraction, masking and scoring (#371). The JUnit version of this -->
+        <!-- project is kept, not jqwik's older Platform 1.x. -->
         <dependency>
             <groupId>net.jqwik</groupId>
             <artifactId>jqwik</artifactId>
             <version>${jqwik.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.platform</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Fluent assertions for unit tests. As the nearest declaration, its version also replaces the one itf-assertj -->
