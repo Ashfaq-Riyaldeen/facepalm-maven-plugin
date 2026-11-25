@@ -46,3 +46,5 @@ build/
 .DS_Store
 # Jazzer corpus from local fuzzing (JAZZER_FUZZ=1), #178
 .cifuzz-corpus/
+# jqwik's local record of failed generated samples.
+.jqwik-database

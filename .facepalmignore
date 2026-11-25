@@ -5,6 +5,7 @@
 src/test/java/dev/nichar/facepalm/pattern/SecretPatternRegistryTest.java  # fake samples for every pattern
 src/test/java/dev/nichar/facepalm/pattern/SecretPatternSamplesTest.java  # fake connection strings and passwords
 src/test/java/dev/nichar/facepalm/engine/extractor/SnippetMaskingTest.java  # fake keys to mask
+src/test/java/dev/nichar/facepalm/engine/extractor/ExtractorPropertiesTest.java  # fake private key block for line-ending comparisons
 src/test/java/dev/nichar/facepalm/engine/extractor/RawLineMatchingTest.java  # fake keys in code-shaped lines
 src/test/java/dev/nichar/facepalm/engine/evaluator/EntropyEvaluatorTest.java  # fake AWS key for the entropy score
 src/test/java/dev/nichar/facepalm/engine/evaluator/FalsePositiveHeuristicsTest.java  # fake password for the heuristics
