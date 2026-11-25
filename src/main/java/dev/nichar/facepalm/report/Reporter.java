@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -246,10 +247,11 @@ public class Reporter {
             }
 
             // Emit high-risk findings at the error level for visibility.
-            if (f.getSeverity(scoringConfig) == Severity.ERROR) {
-                log.error(message);
-            } else {
-                log.warn(message);
+            final Consumer<String> sink = f.getSeverity(scoringConfig) == Severity.ERROR ? log::error : log::warn;
+            sink.accept(message);
+            if (scoringConfig.isShowScoring()) {
+                f.getAdjustments().forEach(adjustment -> sink.accept(String.format(Locale.ROOT,
+                    "    - %s (R:%+d/C:%+d)", adjustment.name(), adjustment.risk(), adjustment.confidence())));
             }
         }
 

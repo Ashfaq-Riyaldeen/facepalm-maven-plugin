@@ -58,6 +58,20 @@ public class Finding {
     private final List<String> scoreHistory = new ArrayList<>();
 
     /**
+     * Score changes in the order they were applied; notes are not adjustments.
+     */
+    @Builder.Default
+    private final List<ScoreAdjustment> adjustments = new ArrayList<>();
+
+    /**
+     * Read-only view of the structured scoring adjustments.
+     */
+    @Nonnull
+    public List<ScoreAdjustment> getAdjustments() {
+        return Collections.unmodifiableList(adjustments);
+    }
+
+    /**
      * Read-only view of the history; entries are added only through {@link #log} and {@link #note}.
      */
     @Nonnull
@@ -106,6 +120,7 @@ public class Finding {
     public void log(@Nonnull final String rule, final int rDelta, final int cDelta) {
         riskScore = Math.max(0, Math.min(100, riskScore + rDelta));
         confidenceScore = Math.max(0, Math.min(100, confidenceScore + cDelta));
+        adjustments.add(new ScoreAdjustment(rule, rDelta, cDelta));
         scoreHistory.add(String.format(Locale.ROOT, "%s (%+d/%+d)", rule, rDelta, cDelta));
     }
 

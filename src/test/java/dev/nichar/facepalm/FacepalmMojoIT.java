@@ -7,6 +7,7 @@ package dev.nichar.facepalm;
 
 import static com.soebes.itf.extension.assertj.MavenITAssertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soebes.itf.jupiter.extension.MavenGoal;
 import com.soebes.itf.jupiter.extension.MavenJupiterExtension;
 import com.soebes.itf.jupiter.extension.MavenTest;
@@ -16,6 +17,8 @@ import com.soebes.itf.jupiter.maven.MavenExecutionResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.stream.StreamSupport;
+import org.assertj.core.api.Assertions;
 
 /**
  * Integration tests for the Facepalm Maven Plugin.
@@ -63,13 +66,16 @@ class FacepalmMojoIT {
     // 3. Prefixing with "facepalm:" ensures we target our plugin's goal directly.
     @MavenGoal("facepalm:report")
     @MavenVerbose
-    void dirty_project(final MavenExecutionResult result) {
+    void dirty_project(final MavenExecutionResult result) throws IOException {
         // Verifies the build finished without errors and the scanner log matches expected success.
         assertThat(result).isSuccessful();
 
         assertThat(result).out().warn()
             .anyMatch(line -> line.startsWith("[Generic Password Assignment] ") && line.endsWith(
                 " - Score: 69.8 (R:85/C:60)"));
+        assertThat(result).out().warn()
+            .contains("    - Base Pattern Match (R:+50/C:+40)",
+                "    - High Risk Configuration File (R:+15/C:+20)");
         assertThat(result).out().warn()
             .anyMatch(line -> fixturePath(line).contains(
                 "/FacepalmMojoIT/dirty_project/project/src/main/resources/application.properties:2"));
@@ -81,6 +87,28 @@ class FacepalmMojoIT {
             .contains("Warnings detected. Review recommended. The build passes: failOnWarnings is false "
                 + "(0 critical, 1 warnings).")
             .contains("BUILD SUCCESS");
+
+        final var results = result.getMavenProjectResult().getTargetProjectDirectory()
+            .resolve("target/facepalm-findings.json");
+        final var findings = new ObjectMapper().readTree(results.toFile());
+        final var finding = StreamSupport.stream(findings.spliterator(), false)
+            .filter(node -> "Generic Password Assignment".equals(node.get("patternName").asText()))
+            .findFirst().orElseThrow();
+        final var adjustments = finding.get("adjustments");
+        Assertions.assertThat(adjustments.isArray()).isTrue();
+        Assertions.assertThat(adjustments.get(0).get("name").asText()).isEqualTo("Base Pattern Match");
+        Assertions.assertThat(adjustments.get(0).get("risk").asInt()).isEqualTo(50);
+        Assertions.assertThat(adjustments.get(0).get("confidence").asInt()).isEqualTo(40);
+        final var extension = StreamSupport.stream(adjustments.spliterator(), false)
+            .filter(adjustment -> "High Risk Configuration File".equals(adjustment.get("name").asText()))
+            .findFirst().orElseThrow();
+        Assertions.assertThat(extension.get("risk").asInt()).isEqualTo(15);
+        Assertions.assertThat(extension.get("confidence").asInt()).isEqualTo(20);
+        Assertions.assertThat(StreamSupport.stream(adjustments.spliterator(), false)
+            .mapToInt(adjustment -> adjustment.get("risk").asInt()).sum()).isEqualTo(finding.get("riskScore").asInt());
+        Assertions.assertThat(StreamSupport.stream(adjustments.spliterator(), false)
+            .mapToInt(adjustment -> adjustment.get("confidence").asInt()).sum())
+            .isEqualTo(finding.get("confidenceScore").asInt());
     }
 
     /**

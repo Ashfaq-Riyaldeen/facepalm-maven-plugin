@@ -5,6 +5,8 @@
 
 package dev.nichar.facepalm.report;
 
+import dev.nichar.facepalm.engine.ScoreAdjustment;
+import java.util.List;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.jackson.Jacksonized;
@@ -62,4 +64,10 @@ public class FindingReport {
      * Confidence level of the detection.
      */
     private int confidenceScore;
+
+    /**
+     * Ordered scoring changes, including requested changes that were clamped.
+     */
+    @Builder.Default
+    private List<ScoreAdjustment> adjustments = List.of();
 }

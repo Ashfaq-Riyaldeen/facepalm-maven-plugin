@@ -73,6 +73,7 @@ class ReporterTest {
         final var lines = new ArrayList<String>();
         final var reporter = reporter(capturing(lines));
         final var error = finding(tempDir, 90, 90);
+        error.log("Test adjustment", 5, -10);
         final var info = finding(tempDir, 10, 10);
 
         reporter.printLogs(new ScanStatistics(), List.of(error, info));
@@ -80,6 +81,7 @@ class ReporterTest {
         final var location = error.getContext().getPath() + ":1";
         assertThat(lines).contains("ERROR [GitHub Token] " + location + " (ghp_...0000)");
         assertThat(lines).noneMatch(line -> line.contains("Score:"));
+        assertThat(lines).noneMatch(line -> line.contains("Test adjustment"));
         assertThat(lines).filteredOn(line -> line.contains(location)).hasSize(1);
         assertThat(lines).noneMatch(line -> line.contains(SECRET));
     }
@@ -92,10 +94,17 @@ class ReporterTest {
         config.getScoring().setShowScoring(true);
         setContext(reporter, config);
 
-        reporter.printLogs(new ScanStatistics(), List.of(finding(tempDir, 90, 90)));
+        final var finding = finding(tempDir, 90, 90);
+        finding.log("First", 5, -10);
+        finding.log("Second", -5, 10);
+        reporter.printLogs(new ScanStatistics(), List.of(finding));
 
         assertThat(lines).anyMatch(line -> line.startsWith("ERROR [GitHub Token] ")
             && line.endsWith(" (ghp_...0000) - Score: 82.8 (R:90/C:90)"));
+        final var first = lines.indexOf("ERROR     - First (R:+5/C:-10)");
+        assertThat(first).isPositive();
+        assertThat(lines).contains("ERROR     - Second (R:-5/C:+10)");
+        assertThat(lines.indexOf("ERROR     - Second (R:-5/C:+10)")).isEqualTo(first + 1);
     }
 
     /**
