@@ -63,6 +63,21 @@ class FindingTest {
         assertThat(finding.getRiskScore()).isEqualTo(95);
         assertThat(finding.getConfidenceScore()).isEqualTo(5);
         assertThat(finding.getScoreHistory()).containsExactly("Raise (+20/-30)", "Lower (-5/+5)");
+        assertThat(finding.getAdjustments()).containsExactly(
+            new ScoreAdjustment("Raise", 20, -30), new ScoreAdjustment("Lower", -5, 5));
+        assertThat(finding.getAdjustments().stream().mapToInt(ScoreAdjustment::risk).sum()).isEqualTo(15);
+        // Replay from the pattern's base scores, clamping after each rule rather than summing into the final score.
+        var risk = 90;
+        var confidence = 10;
+        for (final var adjustment : finding.getAdjustments()) {
+            risk = Math.max(0, Math.min(100, risk + adjustment.risk()));
+            confidence = Math.max(0, Math.min(100, confidence + adjustment.confidence()));
+        }
+        assertThat(risk).isEqualTo(finding.getRiskScore());
+        assertThat(confidence).isEqualTo(finding.getConfidenceScore());
+        finding.note("Not a scoring change");
+        assertThat(finding.getAdjustments()).hasSize(2);
+        assertThat(finding.getAdjustments()).isUnmodifiable();
     }
 
     @Test

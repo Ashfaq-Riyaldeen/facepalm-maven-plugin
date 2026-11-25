@@ -120,6 +120,7 @@ public class FacepalmRunner {
             .finalSeverity(finding.getSeverity(config).name())
             .riskScore(finding.getRiskScore())
             .confidenceScore(finding.getConfidenceScore())
+            .adjustments(List.copyOf(finding.getAdjustments()))
             .build();
     }
 

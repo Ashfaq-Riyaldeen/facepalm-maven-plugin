@@ -69,6 +69,10 @@ The report is written to `target/site/facepalm-report.html` (or the configured `
 
 > **Note:** The report goal reads `facepalm-findings.json`, which the scan goal writes to the build directory (`target/` by default). Run `mvn facepalm:scan` (or a full `mvn verify`) before generating the site; otherwise the report says that no scan data is available. The same happens with an empty file, and after a scan that aborted: every scan deletes the results of the previous one before it starts, so the report never shows outdated findings as current. The report lists severities with the names used in `facepalm-findings.json` (`ERROR`, `WARNING`, `INFO`, `SUPPRESSED`) and counts each of them. The Location column shows paths relative to the project directory, so a published site does not reveal the build machine's directories. Fields in the file that the report goal does not know are ignored, so a file written by a newer or older plugin version still renders. Secrets are masked in both the JSON file and the report. The context snippet shows about 60 characters on each side of a finding's value, marked with `...` where the line continues. In it, every value a pattern captured is masked as a whole token, and so is every quoted value, every value after `=` or `:`, and any long token mixing letters and digits, even if no pattern detected it. At most a quarter of a value is shown, up to 4 characters at each end.
 
+## Findings JSON
+
+Each entry in `facepalm-findings.json` includes `adjustments`, an array in application order. Every object has `name`, `risk` and `confidence`; the last two are signed score changes requested by the rule. `Base Pattern Match` records the pattern's starting scores as the first adjustment. Start from zero, then clamp each adjustment to 0–100 before applying the next one to reproduce `riskScore` and `confidenceScore`. When no step was clamped, the deltas sum to those scores. The array is empty when no scoring rule ran. Non-scoring notes are not adjustments. The field is present even when `showScoring` is false.
+
 ## Suppressed Findings
 
 A finding suppressed by an inline `facepalm:ignore` marker or a `.facepalmignore` entry (see the [FAQ](faq.md#how-do-i-handle-false-positives)) stays in the reports, so reviewers can audit it:
@@ -76,7 +80,7 @@ A finding suppressed by an inline `facepalm:ignore` marker or a `.facepalmignore
 - `facepalm-findings.json` lists it with `"finalSeverity": "SUPPRESSED"`; `finalScore`, `riskScore` and `confidenceScore` keep their values. Consumers that expect only `ERROR`, `WARNING` and `INFO` must accept this value.
 - The log says how many findings were suppressed, for example `[INFO] 1 findings suppressed by facepalm:ignore markers or .facepalmignore (finalSeverity SUPPRESSED in facepalm-findings.json).`, and `showDetails` adds a `Suppressed:` count.
 - The site report counts them under "Suppressed" and lists them with the severity `SUPPRESSED`.
-- The score history (`showScoring`) names the source: `Suppressed by facepalm:ignore: <reason>` or `Suppressed by .facepalmignore:<line>: <reason>`.
+- Suppression reasons are non-scoring history notes, so they do not appear in `adjustments`.
 
 Suppressed findings never fail the build. A marker on a line without a finding, and a `.facepalmignore` entry that matches no finding, are reported as a `WARNING` with the pattern name `Unused Suppression`. The scan statistics count `.facepalmignore` as a skipped file: it lists suppressions, not content to scan.
 

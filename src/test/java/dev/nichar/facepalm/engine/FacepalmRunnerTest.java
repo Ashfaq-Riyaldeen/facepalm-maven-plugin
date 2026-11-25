@@ -5,16 +5,20 @@
 
 package dev.nichar.facepalm.engine;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.TestContainer;
 import dev.nichar.facepalm.config.ScoringConfig;
+import dev.nichar.facepalm.report.FindingReport;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,6 +27,27 @@ import org.junit.jupiter.api.io.TempDir;
  * Build failure semantics of {@code failOnError} and {@code failOnWarnings} for every flag combination.
  */
 class FacepalmRunnerTest {
+
+    @Test
+    void json_includes_adjustments_when_show_scoring_is_off(@TempDir final Path tempDir) throws Exception {
+        final var config = new ScoringConfig();
+        final var finding = Finding.builder().patternName("Test").deduplicationHash("hash")
+            .secretValue("fake-value-12345678").context(new FileContext(tempDir.resolve("app.properties"), "",
+                List.of())).riskScore(50).confidenceScore(40).build();
+        finding.log("High Risk Configuration File", 15, 20);
+
+        final var dto = new FacepalmRunner().mapToDto(finding, config);
+        final var mapper = new ObjectMapper();
+        final var json = mapper.readTree(mapper.writeValueAsString(dto));
+
+        assertThat(config.isShowScoring()).isFalse();
+        assertThat(json.get("adjustments").get(0).get("name").asText())
+            .isEqualTo("High Risk Configuration File");
+        assertThat(json.get("adjustments").get(0).get("risk").asInt()).isEqualTo(15);
+        assertThat(json.get("adjustments").get(0).get("confidence").asInt()).isEqualTo(20);
+        assertThat(mapper.readValue(json.toString(), FindingReport.class).getAdjustments())
+            .containsExactly(new ScoreAdjustment("High Risk Configuration File", 15, 20));
+    }
 
     @Test
     void no_flags_never_fail() {

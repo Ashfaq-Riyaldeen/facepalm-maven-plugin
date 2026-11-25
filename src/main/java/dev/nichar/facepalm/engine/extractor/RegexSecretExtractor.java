@@ -233,10 +233,10 @@ public class RegexSecretExtractor implements SecretExtractor {
                 .lineNumber(lineNum)
                 .context(ctx)
                 .contextSnippet(snippet.trim())
-                .riskScore(sp.getBaseRisk())
-                .confidenceScore(sp.getBaseConfidence())
+                .riskScore(0)
+                .confidenceScore(0)
                 .build();
-            f.log("Base Pattern Match", 0, 0);
+            f.log("Base Pattern Match", sp.getBaseRisk(), sp.getBaseConfidence());
             findings.add(f);
         }
     }
