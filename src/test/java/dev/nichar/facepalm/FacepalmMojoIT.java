@@ -27,6 +27,9 @@ import org.assertj.core.api.Assertions;
  * Check the build result with {@code isSuccessful()} / {@code isFailure()}, not with the "BUILD FAILURE" log line.
  * Maven 4 logs that line at ERROR level instead of INFO (#365).
  *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-01">NFR-01</a>
+ *
  * @author Nikolas Charalambidis
  */
 @MavenJupiterExtension

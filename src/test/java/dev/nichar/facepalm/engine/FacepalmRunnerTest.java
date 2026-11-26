@@ -30,6 +30,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Build failure policies for findings and incomplete scans.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-06">FR-06</a>
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-07">FR-07</a>
  */
 class FacepalmRunnerTest {
 

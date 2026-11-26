@@ -698,6 +698,49 @@
                     <!-- Enables the standard ${...} and @...@ syntax for property substitution in the resource files. -->
                     <useDefaultDelimiters>true</useDefaultDelimiters>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-contributor-pages</id>
+                        <phase>pre-site</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/generated-site/markdown/docs</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>docs</directory>
+                                    <filtering>false</filtering>
+                                    <includes>
+                                        <include>architecture.md</include>
+                                        <include>requirements.md</include>
+                                        <include>roadmap.md</include>
+                                        <include>adr/**/*.md</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>prepare-contributor-images</id>
+                        <phase>pre-site</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.reporting.outputDirectory}/docs/images</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>docs/images</directory>
+                                    <filtering>false</filtering>
+                                    <includes>
+                                        <include>architecture.svg</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Indexes JSR-330 (@Named, @Inject) components into a classpath index file to enable fast, reflection-free discovery by the Sisu container. -->

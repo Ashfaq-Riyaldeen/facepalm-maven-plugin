@@ -23,6 +23,12 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Requirement verification.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-06">FR-06</a>
+ */
 class FacepalmMojoTest {
 
     /**
