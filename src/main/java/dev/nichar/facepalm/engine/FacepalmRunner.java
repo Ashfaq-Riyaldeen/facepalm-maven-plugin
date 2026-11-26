@@ -17,6 +17,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -79,10 +80,12 @@ public class FacepalmRunner {
         Files.deleteIfExists(resultsFile.toPath());
         Files.deleteIfExists(statisticsFile.toPath());
 
-        final var findings = engine.scan(root, staged);
+        final var outcome = engine.scanWithFailures(root, staged);
+        final var findings = outcome.findings();
         final var stats = engine.getStats();
+        final var failedOnScanError = context.getEngine().isFailOnScanError() && !outcome.failedPaths().isEmpty();
 
-        reporter.printLogs(stats, findings);
+        reporter.printLogs(stats, findings, failedOnScanError);
 
         // Persist findings for downstream report generation.
         saveFindingsToJson(findings, resultsFile);
@@ -90,13 +93,24 @@ public class FacepalmRunner {
         new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(statisticsFile, ScanStatisticsReport.from(
             stats));
 
-        // Enforce build failure policies based on finding severity.
         final var scoring = context.getScoring();
         final long errors = findings.stream().filter(f -> f.getSeverity(scoring) == Severity.ERROR).count();
         final long warnings = findings.stream().filter(f -> f.getSeverity(scoring) == Severity.WARNING).count();
-        final var failure = failureMessage(scoring, errors, warnings);
-        if (failure != null) {
-            throw new ScanFailedException(failure);
+        final var findingFailure = failureMessage(scoring, errors, warnings);
+        if (failedOnScanError) {
+            final var failedPaths = outcome.failedPaths().stream()
+                .map(root::relativize)
+                .map(Path::toString)
+                .sorted()
+                .collect(Collectors.joining(System.lineSeparator()));
+            final var scanFailure = "Facepalm scan failed because failOnScanError is true. Could not scan "
+                + outcome.failedPaths().size() + " path(s):" + System.lineSeparator() + failedPaths;
+            throw new ScanFailedException(findingFailure == null ? scanFailure
+                : findingFailure + System.lineSeparator() + scanFailure);
+        }
+
+        if (findingFailure != null) {
+            throw new ScanFailedException(findingFailure);
         }
     }
 

@@ -19,6 +19,21 @@ import org.junit.jupiter.api.Test;
 class EngineConfigTest {
 
     @Test
+    void existing_constructor_preserves_options_and_defaults_to_non_strict_scans() {
+        final var config = new EngineConfig(2, 1024, ".*\\.bin", Set.of("logs"), false, true, true, false);
+
+        assertThat(config.getThreads()).isEqualTo(2);
+        assertThat(config.getMaxFileSizeBytes()).isEqualTo(1024);
+        assertThat(config.getSkipBinaryRegex()).isEqualTo(".*\\.bin");
+        assertThat(config.getSkipDirs()).containsExactly("logs");
+        assertThat(config.getUseDefaultSkipDirs()).isFalse();
+        assertThat(config.isShowProcessed()).isTrue();
+        assertThat(config.isShowSkipped()).isTrue();
+        assertThat(config.isSuppressions()).isFalse();
+        assertThat(config.isFailOnScanError()).isFalse();
+    }
+
+    @Test
     void skip_dirs_default_when_not_configured() {
         final var config = new EngineConfig();
         assertEquals(EngineConfig.SKIP_DIRS, config.getSkipDirs());

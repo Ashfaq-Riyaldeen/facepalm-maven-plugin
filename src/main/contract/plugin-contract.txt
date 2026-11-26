@@ -14,6 +14,7 @@ goal scan phase=verify requiresProject=true aggregator=false threadSafe=true
 param scan.errorThreshold type=int required=false property=errorThreshold default=80
 param scan.evaluators type=dev.nichar.facepalm.config.EvaluatorConfig required=false
 param scan.failOnError type=boolean required=false property=failOnError default=true
+param scan.failOnScanError type=boolean required=false property=failOnScanError default=false
 param scan.failOnWarnings type=boolean required=false property=failOnWarnings default=false
 param scan.maxFileSizeBytes type=long required=false property=maxFileSizeBytes default=5242880
 param scan.patterns type=dev.nichar.facepalm.config.PatternConfig required=false

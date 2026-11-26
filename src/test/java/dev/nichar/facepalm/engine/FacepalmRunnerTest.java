@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -15,16 +16,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.TestContainer;
 import dev.nichar.facepalm.config.ScoringConfig;
+import dev.nichar.facepalm.engine.extractor.SecretExtractor;
 import dev.nichar.facepalm.report.FindingReport;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
- * Build failure semantics of {@code failOnError} and {@code failOnWarnings} for every flag combination.
+ * Build failure policies for findings and incomplete scans.
  */
 class FacepalmRunnerTest {
 
@@ -84,6 +89,70 @@ class FacepalmRunnerTest {
     @Test
     void no_findings_never_fail() {
         assertNull(FacepalmRunner.failureMessage(scoring(true, true), 0, 0));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "false, false, false, ERROR,",
+        "true, false, false, ERROR,",
+        "true, true, false, ERROR, 'Facepalm scan failed: 1 critical findings detected.'",
+        "true, false, true, WARNING, 'Facepalm scan failed: 1 findings at or above the warning threshold "
+            + "(0 critical, 1 warnings) and failOnWarnings is true.'"
+    })
+    void scan_failure_includes_each_enabled_reason(final boolean strict,
+                                                   final boolean failOnError,
+                                                   final boolean failOnWarnings,
+                                                   final Severity severity,
+                                                   final String findingFailure,
+                                                   @TempDir final Path tempDir) throws Exception {
+        final var root = Files.createDirectory(tempDir.resolve("project"));
+        for (final var name : List.of("z.properties", "a.properties", "good.properties", "skip.png")) {
+            Files.writeString(root.resolve(name), "name=value\n");
+        }
+        Files.writeString(root.resolve("large.txt"), "x".repeat(32));
+        Files.writeString(Files.createDirectory(root.resolve("target")).resolve("ignored.txt"), "name=value\n");
+        final var config = new FacepalmConfig();
+        config.getEngine().setFailOnScanError(strict);
+        config.getEngine().setThreads(2);
+        config.getEngine().setMaxFileSizeBytes(16);
+        config.setScoring(scoring(failOnError, failOnWarnings));
+        final var container = TestContainer.create(config);
+        final SecretExtractor extractor = file -> {
+            if (file.getPath().endsWith("a.properties")) {
+                throw new IllegalStateException("test processing failure");
+            }
+            if (file.getPath().endsWith("z.properties")) {
+                throw new AssertionError("test worker failure");
+            }
+            return List.of(Finding.builder().patternName("Test finding").deduplicationHash("test-finding")
+                .secretValue("synthetic-value").context(file).lineNumber(1).fixedSeverity(severity).build());
+        };
+        final var extractorField = ScannerEngine.class.getDeclaredField("extractors");
+        extractorField.setAccessible(true);
+        extractorField.set(container.getInstance(ScannerEngine.class), List.of(extractor));
+
+        final var runner = container.getInstance(FacepalmRunner.class);
+        final var output = tempDir.resolve("out");
+        if (strict) {
+            final var failure = assertThrows(ScanFailedException.class, () -> runner.run(root, output, "test"));
+            final var expected = new ArrayList<String>();
+            if (findingFailure != null) {
+                expected.add(findingFailure);
+            }
+            expected.addAll(List.of(
+                "Facepalm scan failed because failOnScanError is true. Could not scan 2 path(s):",
+                "a.properties", "z.properties"));
+            assertThat(failure.getMessage().lines()).containsExactlyElementsOf(expected);
+        } else {
+            assertDoesNotThrow(() -> runner.run(root, output, "test"));
+        }
+        final var mapper = new ObjectMapper();
+        final var findings = mapper.readTree(output.resolve("facepalm-findings.json").toFile());
+        assertThat(findings).hasSize(1);
+        assertThat(findings.get(0).get("finalSeverity").asText()).isEqualTo(severity.name());
+        final var stats = mapper.readTree(output.resolve("facepalm-statistics.json").toFile());
+        assertThat(stats.get("filesScanned").asLong()).isEqualTo(1L);
+        assertThat(stats.get("filesSkipped").asLong()).isEqualTo(4L);
     }
 
     /**

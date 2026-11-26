@@ -56,6 +56,7 @@ class DefaultsConsistencyTest {
         assertEquals(mojoDefault("showProcessed"), String.valueOf(engine.isShowProcessed()));
         assertEquals(mojoDefault("showSkipped"), String.valueOf(engine.isShowSkipped()));
         assertEquals(mojoDefault("suppressions"), String.valueOf(engine.isSuppressions()));
+        assertEquals(mojoDefault("failOnScanError"), String.valueOf(engine.isFailOnScanError()));
     }
 
     private static String mojoDefault(final String parameter) {

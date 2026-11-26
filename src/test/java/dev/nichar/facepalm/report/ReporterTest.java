@@ -146,6 +146,31 @@ class ReporterTest {
     }
 
     @Test
+    void scan_result_fails_for_an_incomplete_scan() throws Exception {
+        final var lines = new ArrayList<String>();
+        final var reporter = new Reporter(new RecordingLog(lines));
+        setContext(reporter, new FacepalmConfig());
+
+        reporter.printLogs(new ScanStatistics(), List.of(), true);
+
+        assertThat(lines).contains("INFO SCAN RESULT : FAILURE",
+            "INFO No secrets or sensitive patterns detected in scanned files. "
+                + "The build fails: failOnScanError is true and some paths could not be scanned (0 critical, 0 warnings).");
+    }
+
+    @Test
+    void incomplete_scan_keeps_the_findings_summary(@TempDir final Path tempDir) throws Exception {
+        final var lines = new ArrayList<String>();
+        final var reporter = reporter(capturing(lines));
+
+        reporter.printLogs(new ScanStatistics(), List.of(finding(tempDir, 90, 90)), true);
+
+        assertThat(lines).contains("INFO SCAN RESULT : FAILURE",
+            "INFO High-risk issues detected! Action required. "
+                + "The build fails: failOnScanError is true and some paths could not be scanned (1 critical, 0 warnings).");
+    }
+
+    @Test
     void scan_result_is_success_without_reported_findings(@TempDir final Path tempDir) throws Exception {
         final var lines = new ArrayList<String>();
         final var reporter = reporter(capturing(lines));
