@@ -8,7 +8,7 @@ package dev.nichar.facepalm.engine;
 import java.io.Serial;
 
 /**
- * The scan found secrets that fail the build under the configured {@code failOnError} / {@code failOnWarnings} rules.
+ * The scan failed under the configured policy for findings or incomplete scans.
  * The Mojos turn it into a {@code MojoFailureException} with the same message.
  */
 public class ScanFailedException extends Exception {

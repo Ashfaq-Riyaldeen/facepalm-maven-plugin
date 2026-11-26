@@ -226,6 +226,15 @@ public class Reporter {
      * Logs discovery findings and scan statistics to the Maven console.
      */
     public void printLogs(@Nonnull final ScanStatistics stats, @Nonnull final List<Finding> findings) {
+        printLogs(stats, findings, false);
+    }
+
+    /**
+     * Logs the scan result, including whether an incomplete scan will fail the build.
+     */
+    public void printLogs(@Nonnull final ScanStatistics stats,
+                          @Nonnull final List<Finding> findings,
+                          final boolean failedOnScanError) {
         final var scoringConfig = context.getScoring();
 
         // Always list ERROR and WARNING findings with their location, so a failed build or a blocked commit shows
@@ -285,7 +294,8 @@ public class Reporter {
 
         log.info(SEPARATOR);
 
-        var statusMessage = "No secrets or sensitive patterns detected. Your secrets are safe.";
+        var statusMessage = failedOnScanError ? "No secrets or sensitive patterns detected in scanned files."
+            : "No secrets or sensitive patterns detected. Your secrets are safe.";
         if (errors > 0) {
             statusMessage = "High-risk issues detected! Action required.";
         } else if (warnings > 0) {
@@ -300,7 +310,10 @@ public class Reporter {
         final var failed = FacepalmRunner.failureMessage(scoringConfig, errors, warnings) != null;
         final var counts = " (" + errors + " critical, " + warnings + " warnings).";
         final String scanResult;
-        if (failed) {
+        if (failedOnScanError) {
+            scanResult = "FAILURE";
+            statusMessage += " The build fails: failOnScanError is true and some paths could not be scanned" + counts;
+        } else if (failed) {
             scanResult = "FAILURE";
             final var flag = scoringConfig.isFailOnError() && errors > 0 ? "failOnError" : "failOnWarnings";
             statusMessage += " The build fails: " + flag + " is true" + counts;

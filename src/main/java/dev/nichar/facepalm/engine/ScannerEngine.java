@@ -24,15 +24,18 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -119,11 +122,28 @@ public class ScannerEngine {
     @Nonnull
     public List<Finding> scan(@Nonnull final Path root, @Nullable final StagedFiles staged)
             throws InterruptedException, IOException {
+        return scanWithFailures(root, staged).findings();
+    }
+
+    /**
+     * Findings and paths that could not be scanned in one run.
+     */
+    record ScanOutcome(List<Finding> findings, Set<Path> failedPaths) {
+    }
+
+    /**
+     * Scans like {@link #scan(Path, StagedFiles)} and also returns the paths that could not be read or processed.
+     */
+    @Nonnull
+    ScanOutcome scanWithFailures(@Nonnull final Path root, @Nullable final StagedFiles staged)
+            throws InterruptedException, IOException {
         requirePositiveThreads(context.getEngine().getThreads());
         requireReadableDirectory(root);
         stats.markStarted();
         try {
-            return scanRoot(root, staged);
+            final Set<Path> failedPaths = ConcurrentHashMap.newKeySet();
+            final var findings = scanRoot(root, staged, failedPaths);
+            return new ScanOutcome(findings, Set.copyOf(failedPaths));
         } finally {
             stats.markFinished();
         }
@@ -133,7 +153,9 @@ public class ScannerEngine {
      * Discovers the files below the root, or takes the staged ones, and scans those that qualify.
      */
     @Nonnull
-    private List<Finding> scanRoot(@Nonnull final Path root, @Nullable final StagedFiles staged)
+    private List<Finding> scanRoot(@Nonnull final Path root,
+                                   @Nullable final StagedFiles staged,
+                                   @Nonnull final Set<Path> failedPaths)
             throws InterruptedException, IOException {
         // Capture configuration on the main thread for thread safety.
         final var currentConfig = context;
@@ -150,25 +172,24 @@ public class ScannerEngine {
         final var skipBinary = Pattern.compile(engineConfig.getSkipBinaryRegex(), Pattern.CASE_INSENSITIVE
             | Pattern.UNICODE_CASE);
 
-        final List<Callable<List<Finding>>> tasks = new ArrayList<>();
+        final List<Path> candidates = new ArrayList<>();
         // Walk the filesystem, or take the staged files, and identify candidate files.
-        final var discoveredPaths = staged == null ? discover(root) : stagedPaths(root, staged);
+        final var discoveredPaths = staged == null ? discover(root, failedPaths) : stagedPaths(root, staged);
         log.info("Discovered " + discoveredPaths.size() + (staged == null ? " files..." : " staged files..."));
         for (final var path : discoveredPaths) {
             stats.recordDiscovery();
-            if (!shouldScan(path, skipBinary, stats, staged)) {
-                continue;
+            if (shouldScan(path, skipBinary, staged, failedPaths)) {
+                // Counted as scanned in processFile, once the file has been analysed.
+                candidates.add(path);
             }
-            // Counted as scanned in processFile, once the file has been analysed.
-            tasks.add(() -> processFile(root, path, staged));
         }
 
         final List<Finding> findings = new ArrayList<>();
-        if (tasks.isEmpty()) {
+        if (candidates.isEmpty()) {
             log.info("No files qualified to scan.");
         } else {
-            log.info("Starting scan of " + tasks.size() + " files...");
-            findings.addAll(runTasks(tasks, engineConfig.getThreads()));
+            log.info("Starting scan of " + candidates.size() + " files...");
+            findings.addAll(runTasks(root, candidates, staged, engineConfig.getThreads(), failedPaths));
         }
         // Only now is it known which .facepalmignore entries matched a finding in any file.
         findings.addAll(suppressionFile.unusedEntries());
@@ -205,24 +226,32 @@ public class ScannerEngine {
      * Runs the file tasks on a thread pool and collects their findings.
      */
     @Nonnull
-    private List<Finding> runTasks(@Nonnull final List<Callable<List<Finding>>> tasks, final int threads)
+    private List<Finding> runTasks(@Nonnull final Path root,
+                                   @Nonnull final List<Path> candidates,
+                                   @Nullable final StagedFiles staged,
+                                   final int threads,
+                                   @Nonnull final Set<Path> failedPaths)
             throws InterruptedException {
 
         // Initialize thread pool for parallel processing.
         final var executor = Executors.newFixedThreadPool(threads);
         try {
             final CompletionService<List<Finding>> service = new ExecutorCompletionService<>(executor);
-            for (final var task : tasks) {
-                service.submit(task);
+            final Map<Future<List<Finding>>, Path> pendingPaths = new HashMap<>();
+            for (final var path : candidates) {
+                pendingPaths.put(service.submit(() -> processFile(root, path, staged, failedPaths)), path);
             }
 
             final List<Finding> allFindings = new ArrayList<>();
-            for (final Callable<List<Finding>> ignored : tasks) {
+            while (!pendingPaths.isEmpty()) {
+                final var completed = service.take();
+                final var path = pendingPaths.remove(completed);
                 try {
-                    allFindings.addAll(service.take().get());
+                    allFindings.addAll(completed.get());
                 } catch (ExecutionException e) {
                     // processFile handles its own failures; this only covers errors such as OutOfMemoryError.
-                    log.warn("Error processing file: " + e.getCause(), e.getCause());
+                    log.warn("Error processing file " + path + ": " + e.getCause(), e.getCause());
+                    recordFailure(path, ExclusionReason.PROCESSING_ERROR, failedPaths);
                 }
             }
             return allFindings;
@@ -249,7 +278,7 @@ public class ScannerEngine {
      * ({@link #MODULE_DESCRIPTORS}).
      */
     @Nonnull
-    private List<Path> discover(@Nonnull final Path root) throws IOException {
+    private List<Path> discover(@Nonnull final Path root, @Nonnull final Set<Path> failedPaths) throws IOException {
         final var engineConfig = context.getEngine();
         final var skipDirs = effectiveSkipDirs();
         final List<Path> files = new ArrayList<>();
@@ -287,7 +316,7 @@ public class ScannerEngine {
                     return FileVisitResult.CONTINUE;
                 }
                 log.warn("Skipping unreadable path " + file + ": " + exc.getMessage());
-                stats.recordExclusion(ExclusionReason.IO_ERROR);
+                recordFailure(file, ExclusionReason.IO_ERROR, failedPaths);
                 return FileVisitResult.CONTINUE;
             }
 
@@ -367,8 +396,8 @@ public class ScannerEngine {
      */
     private boolean shouldScan(@Nonnull final Path path,
                                @Nonnull final Pattern skipBinary,
-                               @Nonnull final ScanStatistics stats,
-                               @Nullable final StagedFiles staged) {
+                               @Nullable final StagedFiles staged,
+                               @Nonnull final Set<Path> failedPaths) {
         final var engineConfig = context.getEngine();
 
         // The suppression file lists suppressions, not content: its value entries would otherwise be found in it.
@@ -401,7 +430,7 @@ public class ScannerEngine {
             }
         } catch (IOException e) {
             log.error("Could not determine size for: " + path);
-            stats.recordExclusion(ExclusionReason.IO_ERROR);
+            recordFailure(path, ExclusionReason.IO_ERROR, failedPaths);
             return false;
         }
         return true;
@@ -413,7 +442,8 @@ public class ScannerEngine {
     @Nonnull
     private List<Finding> processFile(@Nonnull final Path root,
                                       @Nonnull final Path path,
-                                      @Nullable final StagedFiles staged) {
+                                      @Nullable final StagedFiles staged,
+                                      @Nonnull final Set<Path> failedPaths) {
         final var engineConfig = context.getEngine();
 
         if (engineConfig.isShowProcessed()) {
@@ -463,12 +493,17 @@ public class ScannerEngine {
         } catch (RuntimeException e) {
             // A failing extractor, evaluator or post-processor must not silently drop the file: report it.
             log.warn("Failed to scan " + path + ": " + e, e);
-            stats.recordExclusion(ExclusionReason.PROCESSING_ERROR);
+            recordFailure(path, ExclusionReason.PROCESSING_ERROR, failedPaths);
             return Collections.emptyList();
         } catch (IOException e) {
             log.warn("Skipping unreadable file " + path + ": " + e.getMessage());
-            stats.recordExclusion(ExclusionReason.IO_ERROR);
+            recordFailure(path, ExclusionReason.IO_ERROR, failedPaths);
             return Collections.emptyList();
         }
+    }
+
+    private void recordFailure(final Path path, final ExclusionReason reason, final Set<Path> failedPaths) {
+        stats.recordExclusion(reason);
+        failedPaths.add(path);
     }
 }

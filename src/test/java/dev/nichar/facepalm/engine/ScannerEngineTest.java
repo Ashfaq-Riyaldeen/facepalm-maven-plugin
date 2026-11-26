@@ -10,6 +10,8 @@ import dev.nichar.facepalm.TestContainer;
 import dev.nichar.facepalm.config.EngineConfig;
 import dev.nichar.facepalm.engine.evaluator.FindingEvaluator;
 import dev.nichar.facepalm.engine.extractor.SecretExtractor;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
@@ -19,6 +21,7 @@ import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.atomic.LongAdder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -125,10 +128,11 @@ class ScannerEngineTest {
             Assumptions.assumeFalse(Files.isReadable(locked), "Running with privileges that ignore permissions");
 
             final ScannerEngine scanner = scannerWithMinimalContext();
-            scanner.scan(root);
+            final var outcome = scanner.scanWithFailures(root, null);
 
             Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
             Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.IO_ERROR));
+            Assertions.assertEquals(Set.of(locked), outcome.failedPaths());
         } finally {
             locked.toFile().setReadable(true, false);
         }
@@ -185,6 +189,29 @@ class ScannerEngineTest {
         Assertions.assertEquals(1, findings.size());
         Assertions.assertTrue(findings.get(0).getContext().getPath().endsWith("good.properties"));
         Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.PROCESSING_ERROR));
+    }
+
+    @Test
+    void scan_records_a_file_that_disappears_after_discovery(@TempDir final Path root) throws Exception {
+        final var first = Files.writeString(root.resolve("first.txt"), "hello");
+        final var second = Files.writeString(root.resolve("second.txt"), "hello");
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        final SecretExtractor removesNextFile = file -> {
+            // One worker runs both tasks after discovery and size checks. Remove whichever file it visits second.
+            try {
+                Files.delete(file.getPath().equals(first) ? second : first);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return List.of();
+        };
+        setField(scanner, "extractors", List.of(removesNextFile));
+
+        final var outcome = scanner.scanWithFailures(root, null);
+
+        Assertions.assertEquals(Set.of(Files.exists(first) ? second : first), outcome.failedPaths());
+        Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.IO_ERROR));
+        Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
     }
 
     /**

@@ -7,6 +7,7 @@ package dev.nichar.facepalm.config;
 
 import java.util.HashSet;
 import java.util.Set;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -17,7 +18,7 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class EngineConfig {
 
     /**
@@ -82,6 +83,23 @@ public class EngineConfig {
      */
     @Getter
     private boolean suppressions = true;
+
+    /**
+     * Fail the build if any path could not be scanned.
+     */
+    private boolean failOnScanError;
+
+    public EngineConfig(final Integer threads,
+                        final long maxFileSizeBytes,
+                        final String skipBinaryRegex,
+                        final Set<String> skipDirs,
+                        final Boolean useDefaultSkipDirs,
+                        final boolean showProcessed,
+                        final boolean showSkipped,
+                        final boolean suppressions) {
+        this(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, useDefaultSkipDirs, showProcessed, showSkipped,
+            suppressions, false);
+    }
 
     /**
      * Returns the configured thread count or defaults to available processors.

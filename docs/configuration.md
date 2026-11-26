@@ -43,6 +43,9 @@ Facepalm uses a scoring engine (0-100) to determine if a finding is critical.
 | `showDetails` | `showDetails` | `false` | Log discovery and exclusion statistics. |
 | `failOnError` | `failOnError` | `true` | Fail the build if any finding reaches the error threshold. |
 | `failOnWarnings` | `failOnWarnings` | `false` | Fail the build if any finding reaches the warning threshold. Critical findings count too, also with `failOnError=false`. |
+| `failOnScanError` | `failOnScanError` | `false` | Fail the build and list the affected paths if a file cannot be read or analyzed, or a directory cannot be visited. Intentional skips such as excluded directories, binary files, and files over the size limit do not count. |
+
+Enable this policy with `mvn facepalm:scan -DfailOnScanError=true`. It applies independently of the finding thresholds.
 
 ## Advanced Configuration
 

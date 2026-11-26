@@ -161,6 +161,12 @@ public class FacepalmMojo extends AbstractMojo {
     private boolean failOnWarnings;
 
     /**
+     * Fail the build if any path could not be read or processed during the scan.
+     */
+    @Parameter(property = "failOnScanError", defaultValue = "false")
+    private boolean failOnScanError;
+
+    /**
      * Logic for evaluating leak legitimacy.
      */
     @Parameter
@@ -197,6 +203,7 @@ public class FacepalmMojo extends AbstractMojo {
         // Map Maven parameters to internal configuration.
         final var engine = new EngineConfig(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, useDefaultSkipDirs,
             showProcessed, showSkipped, suppressions);
+        engine.setFailOnScanError(failOnScanError);
         final var scoring = new ScoringConfig(scoringStrategy, errorThreshold, warningThreshold, showScoring,
             showDetails, failOnError, failOnWarnings);
         final var effectiveConfig = new FacepalmConfig(engine, scoring, evaluators, postProcessing, patterns);
@@ -232,7 +239,7 @@ public class FacepalmMojo extends AbstractMojo {
         try {
             runner.run(rootPath, outputDirectory.toPath(), pluginDescriptor.getVersion());
         } catch (ScanFailedException e) {
-            // Findings fail the build: a build failure, not an execution error.
+            // The configured scan policy failed the build.
             throw new MojoFailureException(e.getMessage(), e);
         } catch (Exception e) {
             throw executionFailure(e);
