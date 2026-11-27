@@ -8,26 +8,24 @@ branch, not a promise that every capability is in the latest published release. 
 
 ## Scan data flow
 
-![Scanner data flow](images/architecture.svg)
-
-The static diagram above works without JavaScript. Its equivalent Mermaid source is:
-
 ```mermaid
 flowchart TD
-    A["Maven scan goal or CLI"] --> B["Configuration and indexed components"]
-    B --> C["Working-tree discovery or staged index paths"]
-    C --> D["Directory, size and binary filters; text decoding"]
+    A["Maven scan goal or CLI"] --> B["Configuration and<br/>component discovery"]
+    B --> C["Working-tree discovery<br/>or staged index paths"]
+    C --> D["Directory, size and<br/>binary filters; text decoding"]
     D --> E["Secret extractors"]
     E --> F["Finding evaluators"]
     F --> G["File post-processors"]
     G --> H["File and inline suppression"]
     H --> I["Console and masked JSON reports"]
     I --> J["Failure policy and exit status"]
-    I --> K["Maven report goal reads saved JSON"]
+    I --> K["Maven report goal<br/>reads saved JSON"]
 ```
 
 1. `FacepalmMojo` maps Maven parameters into `FacepalmConfig`; `FacepalmCLI` maps picocli options into the same
-   configuration types. Both create a Guice injector using Sisu's component index and configuration/logging modules.
+   configuration types. Both create a Guice injector with configuration/logging modules. The Mojo discovers
+   components from Sisu's generated index using `BeanScanning.INDEX`; the CLI scans the classpath at runtime using
+   `BeanScanning.CACHE`. A component missing from the index can work in the CLI but disappear in Maven.
    Maven logging is adapted to `FacepalmLog`; the scanning core does not need Maven APIs.
 2. `FacepalmRunner` removes earlier findings/statistics files before scanning so an aborted run cannot leave stale
    results that appear current. `ScannerEngine` validates the root and thread count, loads Git state and file
@@ -83,8 +81,11 @@ boundaries. Its package-cycle check explicitly allows `ScoringConfig` to use the
   Add focused tests and a fixture when introducing an evaluator.
 - **Extractors/post-processors:** implement `SecretExtractor` or `FileFindingsPostProcessor` respectively, with
   the same component annotations. These run concurrently across files; avoid mutable per-file singleton state.
-- **Wiring:** the build generates `META-INF/sisu/javax.inject.Named`. The injector discovers implementations of
-  the three interfaces as lists. `ComponentWiringTest` verifies indexed components and complete extension lists.
+- **Wiring:** the build generates `META-INF/sisu/javax.inject.Named`. Maven uses this index through
+  `BeanScanning.INDEX`, while the CLI uses `BeanScanning.CACHE` to scan the classpath at runtime. A missing index
+  entry can therefore leave a component working in the CLI but absent in Maven. Ensure new components are indexed;
+  a successful CLI scan alone does not verify Maven wiring. The injector supplies implementations of the three
+  interfaces as lists. `ComponentWiringTest` verifies indexed components and complete extension lists.
   Do not introduce an assumed ordering contract between discovered implementations.
 
 ## Outputs and contracts

@@ -117,6 +117,7 @@
         <maven-failsafe-plugin.version>3.6.1</maven-failsafe-plugin.version>
         <spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
+        <doxia-site-model.version>2.1.0</doxia-site-model.version>
         <maven-jxr-plugin.version>3.6.0</maven-jxr-plugin.version>
         <!-- Bytecode analysis (#340): SpotBugs with the FindSecBugs security rules. -->
         <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
@@ -721,25 +722,6 @@
                             </resources>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>prepare-contributor-images</id>
-                        <phase>pre-site</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.reporting.outputDirectory}/docs/images</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>docs/images</directory>
-                                    <filtering>false</filtering>
-                                    <includes>
-                                        <include>architecture.svg</include>
-                                    </includes>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
 
@@ -1017,6 +999,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>${maven-pmd-plugin.version}</version>
+                <dependencies>
+                    <!-- PMD's default Doxia 2.0 model cannot parse the Mermaid element used by the site. -->
+                    <dependency>
+                        <groupId>org.apache.maven.doxia</groupId>
+                        <artifactId>doxia-site-model</artifactId>
+                        <version>${doxia-site-model.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <phase>verify</phase>

@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Requirement verification.
+ * Verifies file discovery, filtering, scan statistics, and failure handling.
  *
  * @see <a href=
  * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-02">FR-02</a>

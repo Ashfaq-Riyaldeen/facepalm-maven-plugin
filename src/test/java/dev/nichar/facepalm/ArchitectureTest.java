@@ -49,7 +49,7 @@ class ArchitectureTest {
     @Test
     void scanning_does_not_depend_on_network_apis() {
         noClasses().should().dependOnClassesThat()
-            .resideInAnyPackage("java.net..", "javax.net..", "java.rmi..", "java.net.http..")
+            .resideInAnyPackage("java.net..", "javax.net..", "java.rmi..")
             .check(CLASSES);
     }
 

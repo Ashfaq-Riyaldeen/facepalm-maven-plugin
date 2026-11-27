@@ -19,7 +19,7 @@ Verification: [SecretPatternRegistryTest](https://github.com/nikolas-charalambid
 
 Scan eligible dotfiles and source files; apply configured directory, size and binary filters, decode supported text, and report exclusions. A source package named like a build directory is not automatically build output.
 
-Verification: [ScannerEngineTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/ScannerEngineTest.java), [TextDecoderTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/TextDecoderTest.java).
+Verification: [FacepalmRunnerTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/FacepalmRunnerTest.java) (file-size exclusion), [ScannerEngineTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/ScannerEngineTest.java), [TextDecoderTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/TextDecoderTest.java).
 
 <a id="fr-03"></a>
 
@@ -33,9 +33,9 @@ Verification: [StagedScanTest](https://github.com/nikolas-charalambidis/facepalm
 
 ## FR-04: Score and classify findings
 
-Apply evaluator and file-level adjustments to risk/confidence, clamping each to 0?100, then use the configured strategy and inclusive severity thresholds. Defaults: WEIGHTED_QUADRATIC, ERROR >= 80 and WARNING >= 40. Ignored untracked files receive an exposure discount; tracked files do not.
+Apply evaluator and file-level adjustments to risk/confidence, clamping each to 0–100, then use the configured strategy and inclusive severity thresholds. Defaults: WEIGHTED_QUADRATIC, ERROR >= 80 and WARNING >= 40. Ignored untracked files receive an exposure discount; tracked files do not.
 
-Verification: [ScoringStrategyTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/ScoringStrategyTest.java), [SeverityThresholdTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/SeverityThresholdTest.java), [CompositeScoringPostProcessorTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/postprocessor/CompositeScoringPostProcessorTest.java), [GitIgnoreServiceTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/GitIgnoreServiceTest.java).
+Verification: [FindingTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/FindingTest.java) (score clamping and adjustment history), [ScoringStrategyTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/ScoringStrategyTest.java), [SeverityThresholdTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/SeverityThresholdTest.java), [CompositeScoringPostProcessorTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/postprocessor/CompositeScoringPostProcessorTest.java), [GitIgnoreServiceTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/GitIgnoreServiceTest.java).
 
 <a id="fr-05"></a>
 
@@ -99,7 +99,7 @@ Verification: [FindingTest](https://github.com/nikolas-charalambidis/facepalm-ma
 
 Use configured thread count and file-size limits, binary exclusions and regex backtracking safeguards. Tests cover known adversarial regex inputs; benchmarks provide measurements, not a throughput SLA or a total-memory bound. Open memory-exhaustion work remains on the roadmap.
 
-Verification: [ScannerEngineTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/ScannerEngineTest.java), [SecretPatternBacktrackingTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/pattern/SecretPatternBacktrackingTest.java).
+Verification: [FacepalmRunnerTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/FacepalmRunnerTest.java) (file-size limit), [ScannerEngineTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/engine/ScannerEngineTest.java) (thread-count validation and binary filtering), [SecretPatternBacktrackingTest](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/src/test/java/dev/nichar/facepalm/pattern/SecretPatternBacktrackingTest.java).
 
 <a id="nfr-05"></a>
 
